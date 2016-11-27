@@ -3,6 +3,7 @@ import numpy as np
 from keras.models import Sequential
 from keras.layers.core import Dense
 from keras.optimizers import sgd
+import json
 
 # parameters
 epsilon = .1  # exploration
@@ -13,18 +14,6 @@ hidden_size = 100
 batch_size = 50
 grid_size = 10
 
-
-def create_model(name, nb_input, num_actions):
-	model = Sequential()
-	model.add(Dense(hidden_size, input_shape=(nb_input,), activation='relu'))
-	model.add(Dense(hidden_size, activation='relu'))
-	model.add(Dense(num_actions))
-	model.compile(sgd(lr=.2), "mse")
-
-	# to load weight pre learned
-	if os.path.exists("weight_{0}.h5".format(name)):
-		model.load_weights("weight_{0}.h5".format(name))
-	return model
 
 
 class ExperienceReplay(object):
@@ -64,9 +53,19 @@ class ExperienceReplay(object):
 
 class RLNet(object):
 	def __init__(self, name, nb_input, num_actions):
-		self.model = create_model(name, nb_input, num_actions)
+		self.name = name
+		self.model = Sequential()
+		self.model.add(Dense(hidden_size, input_shape=(nb_input,), activation='relu'))
+		self.model.add(Dense(hidden_size, activation='relu'))
+		self.model.add(Dense(num_actions))
+		self.model.compile(sgd(lr=.2), "mse")
 
-	# Save trained model weights and architecture, this will be used by the visualization code
-	model.save_weights("model.h5", overwrite=True)
-	with open("model.json", "w") as outfile:
-		json.dump(model.to_json(), outfile)
+		# to load weight pre learned
+		if os.path.exists("weight_{0}.h5".format(self.name)):
+			self.model.load_weights("weight_{0}.h5".format(self.name))
+
+	def save(self):
+		# Save trained model weights and architecture, this will be used by the visualization code
+		self.model.save_weights("weight_{0}.h5".format(self.name), overwrite=True)
+		with open("model_{}.json".format(self.name), "w") as outfile:
+			json.dump(self.model.to_json(), outfile)

@@ -35,6 +35,7 @@ score = 0.0
 fixed_timestep = 1.0/60
 nb_frame = 0
 initialize = True
+loss = 0.
 
 
 while not plus.IsAppEnded(plus.EndOnDefaultWindowClosed): #plus.EndOnEscapePressed |
@@ -70,7 +71,7 @@ while not plus.IsAppEnded(plus.EndOnDefaultWindowClosed): #plus.EndOnEscapePress
 			action = np.argmax(q[0])
 
 		# apply action, get rewards and new state
-		input_t, reward, game_over = experiment.act(action)
+		input_t, reward, game_over = experiment.update(scn, dt_sec, action)
 
 		# store experience
 		exp_replay.remember([input_tm1, action, reward, input_t], game_over)

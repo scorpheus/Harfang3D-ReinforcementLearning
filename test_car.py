@@ -11,7 +11,6 @@ num_actions = 3
 inputs = []
 scene = None
 scene_simple_graphic = None
-score_collision = 0
 prev_pos = gs.Vector3(0, 0, 0)
 
 
@@ -53,8 +52,6 @@ def initialize_environment(scn):
 
 
 def initiate_test_subject(scn):
-	global score_collision
-	score_collision = 0
 	car_physic.SetIsSleeping(False)
 	car_physic.ResetWorld(gs.Matrix4.TranslationMatrix(gs.Vector3(0, 0.5, 0)))
 
@@ -101,39 +98,47 @@ def get_inputs():
 	return inputs
 
 
-def update(dt_sec, model):
-	outputs = model.compute_output(inputs, layer_count, array_gen)
+def get_score(scn):
+	global prev_pos
+	score = 0
+	# BAD look if the car collide, and if it's not with the ground
+	if scn.GetPhysicSystem().HasCollided(car):
+		for pair in scn.GetPhysicSystem().GetCollisionPairs(car):
+			if ground != pair.GetNodeA() and ground != pair.GetNodeB():
+				score -= 1
 
+	# BAD if the input is low, too near the wall
+	for input in inputs:
+		if input < 0.3:
+			score -= 1
+
+	# BAD if didn't move
+	if gs.Vector3.Dist2(prev_pos, car.GetTransform().GetPosition()) < 0.01:
+		score -= 1
+
+	# GOOD if progress
+	score += gs.Vector3.Dist(car.GetTransform().GetPosition(), gs.Vector3(0, 0.5, 0)) * 200.0
+	return score
+
+
+def is_game_over():
+	return False
+
+
+def update(scn, dt_sec, action):
 	# rotate
-	rotate_impulse = outputs[0] * 2 - 1.0
-	power_impulse = (outputs[1] * 2 - 1) * 1.5
+	rotate_impulse = action[0] * 2 - 1.0
+	power_impulse = (action[1] * 2 - 1) * 1.5
 	# print(rotate_impulse)
+
+	pos = car.GetTransform().GetPosition()
+	pos.y += 0.5
+	front_vec = car.GetTransform().GetWorld().GetZ() * 0.51
+	pos += front_vec
 
 	vec_impulse = gs.Matrix3.RotationMatrixYAxis(rotate_impulse) * front_vec * power_impulse
 	scene_simple_graphic.Line(pos.x, pos.y, pos.z, pos.x + vec_impulse.x, pos.y + vec_impulse.y, pos.z + vec_impulse.z, gs.Color.Green, gs.Color.Green)
 
-	car_physic.ApplyLinearImpulse(gs.Matrix3.RotationMatrixYAxis(rotate_impulse) * front_vec * power_impulse)
+	car_physic.ApplyLinearImpulse(gs.Matrix3.RotationMatrixYAxis(rotate_impulse) * front_vec * power_impulse * dt_sec.to_sec())
 
-
-def evaluate_score(scn, current_score):
-	global score_collision, prev_pos
-	# look if the car collide, and if it's not with the ground
-	if scn.GetPhysicSystem().HasCollided(car):
-		for pair in scn.GetPhysicSystem().GetCollisionPairs(car):
-			if ground != pair.GetNodeA() and ground != pair.GetNodeB():
-				score_collision -= 1
-
-	# make bad point if the input is low
-	for input in inputs:
-		if input < 0.3:
-			score_collision -= 1
-
-	if gs.Vector3.Dist2(prev_pos, car.GetTransform().GetPosition()) < 0.01:
-		score_collision -= 1
-
-	current_score = score_collision
-	current_score += gs.Vector3.Dist(car.GetTransform().GetPosition(), gs.Vector3(0, 0.5, 0)) * 200.0
-	return current_score
-
-def is_game_over():
-	return False
+	return get_inputs(), get_score(scn), is_game_over()
